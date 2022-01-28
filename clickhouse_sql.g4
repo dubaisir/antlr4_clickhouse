@@ -118,7 +118,8 @@ statement
         (RESTRICT | CASCADE)?                                          #dropNamespace
     | SHOW (DATABASES | NAMESPACES) ((FROM | IN) multipartIdentifier)?
         (LIKE? pattern=STRING)?                                        #showNamespaces
-    | createTableHeader ('(' colTypeList ')')? tableProvider?
+    | createTableHeader onCluster? ('(' colTypeList ')')? tableEngine? tableProvider?
+        priMarykey? orderBy? settings?
         createTableClauses
         (AS? query)?                                                   #createTable
     | CREATE TABLE (IF NOT EXISTS)? target=tableIdentifier
@@ -254,6 +255,24 @@ configValue
     : quotedIdentifier
     ;
 
+tableEngine
+    : ENGINE EQ engineType ('('expressionSeq')')?
+    ;
+engineType
+    :AggregatingMergeTree
+    |SummingMergeTree
+    |ReplacingMergeTree
+    |CollapsingMergeTree
+    |VersionedCollapsingMergeTree
+    |ReplicatedAggregatingMergeTree
+    |ReplicatedSummingMergeTree
+    |ReplicatedReplacingMergeTree
+    |ReplicatedCollapsingMergeTree
+    |ReplicatedVersionedCollapsingMergeTree
+    |MergeTree
+    |ReplicatedMergeTree
+    ;
+
 unsupportedHiveNativeCommands
     : kw1=CREATE kw2=ROLE
     | kw1=DROP kw2=ROLE
@@ -307,6 +326,19 @@ createTableHeader
 
 replaceTableHeader
     : (CREATE OR)? REPLACE TABLE multipartIdentifier
+    ;
+
+
+priMarykey
+    : PRIMARY KEY errorCapturingIdentifier
+    ;
+
+orderBy
+    : ORDER BY errorCapturingIdentifier
+    ;
+
+settings
+    : SETTINGS settingsPropertyList
     ;
 
 bucketSpec
@@ -394,8 +426,20 @@ createTableClauses
      (TBLPROPERTIES tableProps=tablePropertyList))*
     ;
 
+onCluster
+    : ON CLUSTER clusterName
+    ;
+
+clusterName
+    : errorCapturingIdentifier
+    ;
+
 tablePropertyList
     : '(' tableProperty (',' tableProperty)* ')'
+    ;
+
+settingsPropertyList
+    : tableProperty (',' tableProperty)*
     ;
 
 tableProperty
@@ -763,6 +807,7 @@ namedExpression
     : expression (AS? (name=errorCapturingIdentifier | identifierList))?
     ;
 
+
 namedExpressionSeq
     : namedExpression (',' namedExpression)*
     ;
@@ -934,7 +979,10 @@ colTypeList
     ;
 
 colType
-    : colName=errorCapturingIdentifier dataType (NOT NULL)? commentSpec?
+    : colName=errorCapturingIdentifier dataType (NOT NULL)? (colDefault)? commentSpec?
+    ;
+colDefault
+    :DEFAULT expression
     ;
 
 complexColTypeList
@@ -1538,6 +1586,8 @@ nonReserved
 //--SPARK-KEYWORD-LIST-START
 ADD: 'ADD'|'add';
 AFTER: 'AFTER'|'after';
+AggregatingMergeTree: 'AggregatingMergeTree';
+ReplicatedAggregatingMergeTree: 'ReplicatedAggregatingMergeTree';
 ALL: 'ALL'|'all';
 ALTER: 'ALTER'|'alter';
 ANALYZE: 'ANALYZE'|'analyze';
@@ -1566,6 +1616,8 @@ CLEAR: 'CLEAR'|'clear';
 CLUSTER: 'CLUSTER'|'cluster';
 CLUSTERED: 'CLUSTERED'|'clustered';
 CODEGEN: 'CODEGEN'|'codegen';
+CollapsingMergeTree: 'CollapsingMergeTree';
+ReplicatedCollapsingMergeTree: 'ReplicatedCollapsingMergeTree';
 COLLATE: 'COLLATE'|'collate';
 COLLECTION: 'COLLECTION'|'collection';
 COLUMN: 'COLUMN'|'column';
@@ -1591,6 +1643,7 @@ DATA: 'DATA'|'data';
 DATABASE: 'DATABASE'|'database';
 DATABASES: 'DATABASES' | 'SCHEMAS'|'schemas';
 DBPROPERTIES: 'DBPROPERTIES'|'dbproperties';
+DEFAULT: 'DEFAULT'|'default';
 DEFINED: 'DEFINED'|'defined';
 DELETE: 'DELETE'|'delete';
 DELIMITED: 'DELIMITED'|'delimited';
@@ -1605,6 +1658,7 @@ DIV: 'DIV'|'div';
 DROP: 'DROP'|'drop';
 ELSE: 'ELSE'|'else';
 END: 'END'|'end';
+ENGINE: 'ENGINE'|'engine';
 ESCAPE: 'ESCAPE'|'escape';
 ESCAPED: 'ESCAPED'|'escaped';
 EXCEPT: 'EXCEPT'|'except';
@@ -1653,6 +1707,7 @@ INTO: 'INTO'|'into';
 IS: 'IS'|'is';
 ITEMS: 'ITEMS'|'items';
 JOIN: 'JOIN'|'join';
+KEY: 'KEY'|'key';
 KEYS: 'KEYS'|'keys';
 LAST: 'LAST'|'last';
 LATERAL: 'LATERAL'|'lateral';
@@ -1674,6 +1729,8 @@ MACRO: 'MACRO'|'macro';
 MAP: 'MAP'|'map';
 MATCHED: 'MATCHED'|'matched';
 MERGE: 'MERGE'|'merge';
+MergeTree: 'MergeTree';
+ReplicatedMergeTree: 'ReplicatedMergeTree';
 MINUTE: 'MINUTE'|'minute';
 MONTH: 'MONTH'|'month';
 MSCK: 'MSCK'|'msck';
@@ -1721,6 +1778,9 @@ REFRESH: 'REFRESH'|'refresh';
 RENAME: 'RENAME'|'rename';
 REPAIR: 'REPAIR'|'repair';
 REPLACE: 'REPLACE'|'replace';
+ReplacingMergeTree: 'ReplacingMergeTree';
+ReplicatedReplacingMergeTree:'ReplicatedReplacingMergeTree';
+Replicate: 'Replicate';
 RESET: 'RESET'|'reset';
 RESPECT: 'RESPECT'|'respect';
 RESTRICT: 'RESTRICT'|'restrict';
@@ -1744,6 +1804,7 @@ SESSION_USER: 'SESSION_USER'|'session_user';
 SET: 'SET'|'set';
 SETMINUS: 'MINUS'|'minus';
 SETS: 'SETS'|'sets';
+SETTINGS: 'SETTINGS'|'settings';
 SHOW: 'SHOW'|'show';
 SKEWED: 'SKEWED'|'skewed';
 SOME: 'SOME'|'some';
@@ -1756,6 +1817,8 @@ STRATIFY: 'STRATIFY'|'stratify';
 STRUCT: 'STRUCT'|'struct';
 SUBSTR: 'SUBSTR'|'substr';
 SUBSTRING: 'SUBSTRING'|'substring';
+SummingMergeTree: 'SummingMergeTree';
+ReplicatedSummingMergeTree:'ReplicatedSummingMergeTree';
 SYNC: 'SYNC'|'sync';
 TABLE: 'TABLE'|'table';
 TABLES: 'TABLES'|'tables';
@@ -1789,6 +1852,8 @@ USE: 'USE'|'use';
 USER: 'USER'|'user';
 USING: 'USING'|'using';
 VALUES: 'VALUES'|'values';
+VersionedCollapsingMergeTree: 'VersionedCollapsingMergeTree';
+ReplicatedVersionedCollapsingMergeTree:'ReplicatedVersionedCollapsingMergeTree';
 VIEW: 'VIEW'|'view';
 VIEWS: 'VIEWS'|'views';
 WHEN: 'WHEN'|'when';
