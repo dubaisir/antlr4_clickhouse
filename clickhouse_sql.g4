@@ -844,6 +844,7 @@ booleanExpression
     : NOT booleanExpression                                        #logicalNot
     | EXISTS '(' query ')'                                         #exists
     | valueExpression predicate?                                   #predicated
+    | '[' valueExpression (',' valueExpression)*']'                #arrayData
     | left=booleanExpression operator=AND right=booleanExpression  #logicalBinary
     | left=booleanExpression operator=OR right=booleanExpression   #logicalBinary
     ;
